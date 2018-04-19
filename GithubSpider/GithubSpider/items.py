@@ -6,9 +6,11 @@
 # https://doc.scrapy.org/en/latest/topics/items.html
 
 import scrapy
+from scrapy.item import Item,Field
 
-
-class GithubspiderItem(scrapy.Item):
+class UserItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
-    pass
+    name = Field()
+    resposity = Field()
+    # pass
