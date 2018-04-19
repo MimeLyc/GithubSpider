@@ -3,6 +3,7 @@ from scrapy.selector import Selector
 from GithubSpider.items import UserItem
 from scrapy.contrib.linkextractors.sgml import SgmlLinkExtractor
 from scrapy.contrib.spiders import CrawlSpider, Rule
+import re
 
 host = "https://github.com"
 
@@ -48,12 +49,30 @@ class UserResSpider(scrapy.Spider):
         # print(len(repList))
         for i in repList:
             repAddr = host+i.extract()
-            item['repository'].append([repAddr,0])
+            # item['repository'].append([repAddr,0])
+            yield scrapy.Request(repAddr,meta={'item': item}, callback=self.getCommit_parse)
 
+        # print("test")
         for i in item['repository']:
             print(i)
-        return item
 
+        #
+        # return item
+
+    def getCommit_parse(self,response):
+        item = response.meta['item']
+        sel = Selector(response)
+        # last = len(item['repository'])-1
+        commitNum = sel.xpath('//div/ul[@class="numbers-summary"]/li[@class="commits"]/a/span/text()').extract()
+        # commitNum.strip()
+        commitNum = re.sub(r'\s+','', str(commitNum))
+        commitNum = "".join(commitNum.split("\\n"))
+        # commitNum = re.sub(r'\n', '', str(commitNum))
+        url = sel.xpath('//head/link[@rel="canonical"]/@href').extract()
+        # print(str(url)+commitNum)
+        item['repository'].append([url,commitNum])
+
+        return item
 
     def parse_2(self,response):
         filename = response.url
