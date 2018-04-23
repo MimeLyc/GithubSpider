@@ -14,3 +14,8 @@ class UserItem(scrapy.Item):
     name = Field()
     repository = Field()
     # pass
+
+class RepItem(scrapy.Item):
+    name = Field()
+    addr = Field()
+    commitNum = Field()

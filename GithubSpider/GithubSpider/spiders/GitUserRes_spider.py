@@ -1,6 +1,7 @@
 import scrapy
 from scrapy.selector import Selector
 from GithubSpider.items import UserItem
+from GithubSpider.items import RepItem
 from scrapy.contrib.linkextractors.sgml import SgmlLinkExtractor
 from scrapy.contrib.spiders import CrawlSpider, Rule
 import re
@@ -8,6 +9,7 @@ import re
 host = "https://github.com"
 
 class UserResSpider(scrapy.Spider):
+    #the Name of the Spider,input " python -m  scrapy crawl GitUserRes "in the root of the pro
     name = "GitUserRes"
     allowed_domains = ['github.com']
     headers = {
@@ -26,12 +28,12 @@ class UserResSpider(scrapy.Spider):
     def parse(self, response):
         filename = response.url
         sel = Selector(response)
-        item = UserItem()
-        item['name'] = sel.xpath('//div/h1[@class="vcard-names"]/span[@class="p-nickname vcard-username d-block"]/text()').extract()
+        uItem = UserItem()
+        uItem['name'] = sel.xpath('//div/h1[@class="vcard-names"]/span[@class="p-nickname vcard-username d-block"]/text()').extract()
         # get repo address
         res =host+sel.xpath('//div/nav/a[.//text()[normalize-space(.)="Repositories"]]/@href').extract()[0]
         # print(res)
-        yield scrapy.Request(res, meta={'item': item}, callback=self.repList_parse)
+        yield scrapy.Request(res, meta={'uItem': uItem}, callback=self.repList_parse)
         # item['resposity'] = {'a':1,'b':2}
 
         # test = sel.xpath('http://github\.com/ .*[^\?]$\?tab=following').extract()
@@ -42,48 +44,57 @@ class UserResSpider(scrapy.Spider):
         # return item
 
     def repList_parse(self,response):
-        item = response.meta['item']
+        uItem = response.meta['uItem']
         sel = Selector(response)
         repList = sel.xpath('//div[@id="user-repositories-list"]/ul/li/div/h3/a/@href')
-        item['repository']=[]
+        uItem['repository']=[]
         # print(len(repList))
         for i in repList:
+            rItem = RepItem();
             repAddr = host+i.extract()
+            rItem['name'] = i.extract()
+            rItem['addr'] = repAddr
             # item['repository'].append([repAddr,0])
-            yield scrapy.Request(repAddr,meta={'item': item}, callback=self.getCommit_parse)
+            yield scrapy.Request(repAddr,meta={'uItem': uItem,'rItem':rItem}, callback=self.getCommit_parse)
 
         # print("test")
-        for i in item['repository']:
-            print(i)
+        for i in uItem['repository']:
+            print(i['name']+i['commitNum'])
 
         #
         # return item
 
     def getCommit_parse(self,response):
-        item = response.meta['item']
+        uItem = response.meta['uItem']
+        rItem = response.meta['rItem']
         sel = Selector(response)
+        # rItem = RepItem();
         # last = len(item['repository'])-1
         commitNum = sel.xpath('//div/ul[@class="numbers-summary"]/li[@class="commits"]/a/span/text()').extract()
         # commitNum.strip()
         commitNum = re.sub(r'\s+','', str(commitNum))
         commitNum = "".join(commitNum.split("\\n"))
+        rItem['commitNum'] = commitNum
         # commitNum = re.sub(r'\n', '', str(commitNum))
-        url = sel.xpath('//head/link[@rel="canonical"]/@href').extract()
+        # url = sel.xpath('//head/link[@rel="canonical"]/@href').extract()
         # print(str(url)+commitNum)
-        item['repository'].append([url,commitNum])
+        uItem['repository'].append([rItem['name'],rItem])
 
-        return item
+        return uItem
 
-    def parse_2(self,response):
-        filename = response.url
-        sel = Selector(response)
-        item = UserItem()
-        item['name'] = sel.xpath(
-            '//div/a[@class="d-inline-block no-underline mb-1"]/span[@class="f4 link-gray-dark"]/text()').extract()
-        item['resposity'] = {'a': 1, 'b': 2}
-        print("test following-----------------")
-        print(item['name'])
-        print(len(item['resposity']))
-        print("test----------------------")
-        # with open(filename, 'wb') as f:
-        #     f.write(response.body)
+
+
+    #
+    # def parse_2(self,response):
+    #     filename = response.url
+    #     sel = Selector(response)
+    #     item = UserItem()
+    #     item['name'] = sel.xpath(
+    #         '//div/a[@class="d-inline-block no-underline mb-1"]/span[@class="f4 link-gray-dark"]/text()').extract()
+    #     item['resposity'] = {'a': 1, 'b': 2}
+    #     print("test following-----------------")
+    #     print(item['name'])
+    #     print(len(item['resposity']))
+    #     print("test----------------------")
+    #     # with open(filename, 'wb') as f:
+    #     #     f.write(response.body)
