@@ -13,6 +13,12 @@ BOT_NAME = 'GithubSpider'
 
 SPIDER_MODULES = ['GithubSpider.spiders']
 NEWSPIDER_MODULE = 'GithubSpider.spiders'
+HTTPERROR_ALLOWED_CODES = [403]
+RETRY_HTTP_CODES = [429]
+DOWNLOADER_MIDDLEWARES = {
+    'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
+    'GithubSpider.middlewares.TooManyRequestsRetryMiddleware': 543,
+}
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent

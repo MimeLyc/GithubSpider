@@ -19,3 +19,6 @@ class RepItem(scrapy.Item):
     name = Field()
     addr = Field()
     commitNum = Field()
+    limitDate = Field()
+    cmmtNum2Date = Field()
+    cmmtNumFDate = Field()

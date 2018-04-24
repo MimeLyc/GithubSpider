@@ -5,9 +5,11 @@ from GithubSpider.items import RepItem
 from scrapy.contrib.linkextractors.sgml import SgmlLinkExtractor
 from scrapy.contrib.spiders import CrawlSpider, Rule
 import re
+import time
 
 host = "https://github.com"
-
+date = "Apr 1,2018"
+dateF = time.strptime(date, "%b %d,%Y")
 class UserResSpider(scrapy.Spider):
     #the Name of the Spider,input " python -m  scrapy crawl GitUserRes "in the root of the pro
     name = "GitUserRes"
@@ -21,6 +23,8 @@ class UserResSpider(scrapy.Spider):
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36",
     }
     start_urls = ["https://github.com/Linwenye"]
+
+
     # rules = (
     #     Rule(SgmlLinkExtractor(allow=(r'http://github\.com/^((?!\?$).)*$\?tab=following'))),
     # )
@@ -55,34 +59,92 @@ class UserResSpider(scrapy.Spider):
             rItem['name'] = i.extract()
             rItem['addr'] = repAddr
             # item['repository'].append([repAddr,0])
-            yield scrapy.Request(repAddr,meta={'uItem': uItem,'rItem':rItem}, callback=self.getCommit_parse)
+            yield scrapy.Request(repAddr,meta={'uItem': uItem, 'rItem': rItem}, callback=self.getCommit_parse)
 
         # print("test")
-        for i in uItem['repository']:
-            print(i['name']+i['commitNum'])
+        # for i in uItem['repository']:
+        #     print(i['name']+i['commitNum'])
 
         #
         # return item
 
-    def getCommit_parse(self,response):
+    def getCommit_parse(self, response):
         uItem = response.meta['uItem']
         rItem = response.meta['rItem']
         sel = Selector(response)
         # rItem = RepItem();
         # last = len(item['repository'])-1
         commitNum = sel.xpath('//div/ul[@class="numbers-summary"]/li[@class="commits"]/a/span/text()').extract()
+        commitPage = host+sel.xpath('//div/ul[@class="numbers-summary"]/li[@class="commits"]/a/@href').extract()[0]
         # commitNum.strip()
-        commitNum = re.sub(r'\s+','', str(commitNum))
+        commitNum = re.sub(r'\s+', '', str(commitNum))
         commitNum = "".join(commitNum.split("\\n"))
         rItem['commitNum'] = commitNum
+        rItem['cmmtNum2Date'] = 0
+        rItem['cmmtNumFDate'] = 0
+        rItem['limitDate'] = date
         # commitNum = re.sub(r'\n', '', str(commitNum))
         # url = sel.xpath('//head/link[@rel="canonical"]/@href').extract()
         # print(str(url)+commitNum)
-        uItem['repository'].append([rItem['name'],rItem])
 
-        return uItem
+        # print(commitPage+"--------------------------------------------test1")
+        yield scrapy.Request(commitPage, meta={ 'rItem': rItem}, callback=self.getCmmt2Date_parse)
+        # print(str(rItem['name']) + str(rItem['cmmtNum2Date']) + "test------=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
+        uItem['repository'].append([rItem['name'], rItem])
+
+        # rItem['cmmtNum2Date'] = rItem['commitNum'] - rItem['cmmtNumFDate']
+        # return uItem
+
+    def getCmmt2Date_parse(self,response):
+        # uItem = response.meta['uItem']
+        rItem = response.meta['rItem']
+        sel = Selector(response)
+
+        # commit Num before date
+        cmmtNum = 0
+
+        dateList = sel.xpath('//div[@class="commits-listing commits-listing-padded js-navigation-container js-active-navigation-container"]/div[@class="commit-group-title"]/text()').extract()
+        # print(str(len(dateList))+"________________"+ rItem['name'])
+        for i in range(len(dateList)):
+            if i % 2 is 0:
+                continue
+            # print(str(dateList[i])+"_______________________")
+            strList = dateList[i].split(" ")
+            # print(str(len(strList))+"test=============")
+            tempDate = strList[2]+" " + strList[3]+strList[4].split('\n')[0]
+            # print(dateList[i] + "-------=-=-=-=-=-=-test")
+            tempDateF = time.strptime(tempDate,"%b %d,%Y")
+            if int(time.mktime(tempDateF)) - int(time.mktime(dateF)) < 0:
+                # print( "________________" + rItem['name'])
+                # the index of array in the xpath is begin from 1.not 0
+                cmmtList = sel.xpath('//div[@class="commits-listing commits-listing-padded js-navigation-container js-active-navigation-container"]/ol[' + str(i//2+1) + ']/li').extract()
+
+                # cmmtList = cmmtList.xpath('>li').extract()
+                # print(cmmtList+"??????????")
+                # print(str( len(cmmtList))+"________________" + rItem['name'])
+                cmmtNum += len(cmmtList)
+            # if cmmtNum is 0:
+            #     return
 
 
+
+        rItem['cmmtNum2Date'] += cmmtNum
+
+        print(str(rItem['name']) +"   "+ str(rItem['cmmtNum2Date']) + "   test------=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
+        hasOlder = sel.xpath('//div[@class="paginate-container"]/div[@class="pagination"]/a/text()').extract()
+        # if len(hasOlder) is 1:
+        #     print(hasOlder[0]+"!!!!!!!@#$!@#")
+        if len(hasOlder) is 1 and str(hasOlder[0]) == 'Older':
+            # print("get!---------------------------------------------11")
+            olderPage = sel.xpath('//div[@class="paginate-container"]/div[@class="pagination"]/a/@href').extract()[0]
+            yield scrapy.Request(olderPage, meta={ 'rItem': rItem}, callback=self.getCmmt2Date_parse,dont_filter=True)
+        elif len(hasOlder) is 2 and str(hasOlder[1]) == 'Older':
+            # print("get!=------------------22")
+            #
+            olderPage = sel.xpath('//div[@class="paginate-container"]/div[@class="pagination"]/a/@href').extract()[1]
+            yield scrapy.Request(olderPage, meta={ 'rItem': rItem}, callback=self.getCmmt2Date_parse,dont_filter=True)
+        # return
+            # print(tempDate+"------------------------------------------test")
 
     #
     # def parse_2(self,response):
