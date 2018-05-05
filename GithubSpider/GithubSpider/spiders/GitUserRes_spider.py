@@ -22,7 +22,7 @@ class UserResSpider(scrapy.Spider):
     "Content-Type":" application/x-www-form-urlencoded",
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36",
     }
-    start_urls = ["https://github.com/Linwenye"]
+    start_urls = ["https://github.com/snicoll"]
 
 
     # rules = (
@@ -33,7 +33,9 @@ class UserResSpider(scrapy.Spider):
         filename = response.url
         sel = Selector(response)
         uItem = UserItem()
+
         uItem['name'] = sel.xpath('//div/h1[@class="vcard-names"]/span[@class="p-nickname vcard-username d-block"]/text()').extract()
+        uItem['repository'] = []
         # get repo address
         res =host+sel.xpath('//div/nav/a[.//text()[normalize-space(.)="Repositories"]]/@href').extract()[0]
         # print(res)
@@ -47,11 +49,12 @@ class UserResSpider(scrapy.Spider):
         # print("test----------------------")
         # return item
 
+    # get Repository list
     def repList_parse(self,response):
         uItem = response.meta['uItem']
         sel = Selector(response)
         repList = sel.xpath('//div[@id="user-repositories-list"]/ul/li/div/h3/a/@href')
-        uItem['repository']=[]
+
         # print(len(repList))
         for i in repList:
             rItem = RepItem();
@@ -59,7 +62,17 @@ class UserResSpider(scrapy.Spider):
             rItem['name'] = i.extract()
             rItem['addr'] = repAddr
             # item['repository'].append([repAddr,0])
+            # TODO
             yield scrapy.Request(repAddr,meta={'uItem': uItem, 'rItem': rItem}, callback=self.getCommit_parse)
+        # div[@class="container-lg clearfix px-3 mt-4"]/div[@class="position-relative"]/
+        pageList = sel.xpath('//div[@id="user-repositories-list"]/div[@class="paginate-container"]/'
+                             'div[@class="pagination"]/a[@class="next_page"]/@href').extract()
+        # print(str(len(pageList))+"get!!!--")
+        if len(pageList) != 0:
+            nextPageUrl = host + pageList[0]
+            print(nextPageUrl + "????test")
+            yield scrapy.Request(str(nextPageUrl) , meta={'uItem': uItem}, callback=self.repList_parse)
+
 
         # print("test")
         # for i in uItem['repository']:
@@ -69,6 +82,7 @@ class UserResSpider(scrapy.Spider):
         # return item
 
     def getCommit_parse(self, response):
+        # print("hello~~~~~~~~~~~~~~~~~~~~~~~")
         uItem = response.meta['uItem']
         rItem = response.meta['rItem']
         sel = Selector(response)
@@ -121,7 +135,7 @@ class UserResSpider(scrapy.Spider):
 
                 # cmmtList = cmmtList.xpath('>li').extract()
                 # print(cmmtList+"??????????")
-                # print(str( len(cmmtList))+"________________" + rItem['name'])
+                print(str( len(cmmtList))+"________________" + rItem['name'])
                 cmmtNum += len(cmmtList)
             # if cmmtNum is 0:
             #     return
